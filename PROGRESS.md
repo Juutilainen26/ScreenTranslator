@@ -109,12 +109,24 @@
 - ✅ README.md — "GitHub에 올려두고 필요할 때 받아쓰기" 섹션 추가: 최초 push 방법, 커밋 전 `git status`로 config.py 안 보이는지 확인하라는 안내, 새 PC에서 clone 후 `config.example.py` → `config.py` 복사해서 키 재입력하는 방법까지 정리
 - 주의: 사용자 로컬의 실제 `config.py`(진짜 API 키 포함)는 이번 작업에서 건드리지 않음 — 압축 파일에 포함하지 않고 새 파일들만 별도 안내
 
-## 현재 상태: MVP + exe 배포 + GitHub 업로드 준비까지 완료
+### 19단계 — 설정을 exe 외부 파일로 완전 분리 (재빌드 없이 설정 변경 가능)
+- 사용자 문제 제기: exe로 빌드하면 그 시점의 `config.py` 값(번역 백엔드, API 키 등)이 그대로 굳어버려서, 나중에 claude↔gemini 전환하거나 키를 바꾸려면 매번 재빌드해야 하는 구조였음. 덤으로 exe 안에 API 키가 그대로 컴파일되어 들어가는 보안 문제도 있었음
+- ✅ `config.py` — 전면 재작성. 이제 이 파일엔 설정값이 없고, `%APPDATA%\ScreenTranslator\settings.py`를 런타임에 동적으로 로드하는 로더 역할만 함. 파일이 없으면 첫 실행 시 기본 템플릿(주석 포함)을 자동 생성. 다른 모듈들은 여전히 `import config` 후 `config.TRANSLATE_BACKEND` 등으로 그대로 접근 가능 (인터페이스 안 바뀜, vision.py/pipeline.py/translate.py/app.py/main.py 수정 불필요)
+- ✅ `app.py`, `main.py` — 시작 시 설정 파일의 실제 경로를 로그/콘솔에 표시하도록 추가
+- 부수 효과: API 키가 더 이상 exe 안에 컴파일되어 들어가지 않음(설정 파일은 항상 프로젝트/빌드 바깥의 `%APPDATA%`에 위치) + `config.py` 자체에는 더 이상 민감정보가 없어져서 **git에 그대로 커밋해도 안전**해짐
+- ✅ `config.example.py` 삭제 (더 이상 필요 없음 — config.py 자체가 안전해짐)
+- ✅ `.gitignore` — `config.py` 항목 제거 (venv/build/dist/pycache만 남음)
+- ✅ README.md — 설정 관리 방식(외부 settings.py) 및 GitHub 섹션 전체 갱신 (config.example.py 복사 안내 제거, 새 clone 시 첫 실행하면 settings.py 자동 생성된다는 안내로 교체)
+- 주의: 사용자의 기존 로컬 `config.py`(실제 키 포함)는 이번 변경으로 로더 코드로 교체됨 — 기존에 넣어뒀던 API 키를 새로 생성되는 `%APPDATA%\ScreenTranslator\settings.py`에 다시 입력해줘야 함 (마이그레이션 필요, 자동 이전 안 됨)
+
+## 현재 상태: MVP + exe 배포 + GitHub 업로드 + 설정 외부화까지 완료
 더블클릭 실행되는 화면 번역기(캡쳐 → Claude/Gemini 비전으로 인식+번역+맥락 해설 → 팝업 표시)가 목표한 형태로 완성됨.
 번역 백엔드는 API 전용(claude/gemini)이며 Ollama/PaddleOCR은 완전히 제거됨.
+설정(백엔드/API 키 등)은 `%APPDATA%\ScreenTranslator\settings.py`에 저장되어 재빌드 없이 변경 가능.
 
 ## 다음에 이어서 할 것 (선택사항)
-- [ ] 사용자가 실제로 `git init` ~ `git push`까지 진행 후 GitHub에 private repo로 잘 올라갔는지, `config.py`가 빠져있는지 확인 필요
+- [ ] 사용자가 기존 API 키를 새 `settings.py`에 재입력했는지, 정상 동작하는지 확인 필요
+- [ ] 위 변경사항을 GitHub에 반영 (`git add -A` → commit → push, config.example.py 삭제분도 함께 반영됨)
 - [ ] 캡쳐 영역 고정 + 화면 변화 감지 기반 지속 오버레이 모드
 - [ ] 단축키로 번역 대상 언어 순환 전환
 - [ ] 멀티 모니터 환경 좌표 보정 확인
@@ -123,6 +135,7 @@
 ## 재개 시 참고
 - 개발 중 테스트: `python app.py`
 - 번역 엔진(텍스트) 연결만 확인: `python test_translate.py`
-- exe 빌드: `build.bat` 더블클릭 (사용자 PC, Windows 환경에서만 가능) — 완료된 상태
-- GitHub: `config.py`는 `.gitignore`에 등록되어 있음. 새 환경에서는 `config.example.py`를 `config.py`로 복사 후 API 키만 입력하면 됨
+- exe 빌드: `build.bat` 더블클릭 (사용자 PC, Windows 환경에서만 가능)
+- 설정 파일: `%APPDATA%\ScreenTranslator\settings.py` (앱 첫 실행 시 자동 생성, API 키 등은 여기서 관리)
+- GitHub: 이제 `config.py`를 포함한 모든 소스 파일을 그대로 커밋해도 안전함 (민감정보는 프로젝트 폴더 밖에 있음)
 - 새 세션에서 이어간다면: 이 파일 + README.md만 보고 "다음에 이어서 할 것" 항목부터 진행하면 됨

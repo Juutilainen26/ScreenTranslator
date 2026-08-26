@@ -63,6 +63,7 @@ class TranslatorApp:
         self.log_box.pack(padx=15, pady=(0, 15))
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.root.after(0, lambda: self.log(f"설정 파일 위치: {config.settings_file_path()}"))
 
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")

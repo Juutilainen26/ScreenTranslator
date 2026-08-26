@@ -19,6 +19,7 @@ def _console_log(message):
 
 
 def main():
+    print(f"[번역기] 설정 파일 위치: {config.settings_file_path()}")
     print(
         f"[번역기] 준비 완료! "
         f"{config.HOTKEY_CAPTURE.upper()}=새 영역 캡쳐, "
