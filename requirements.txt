@@ -1,0 +1,4 @@
+mss
+pillow
+requests
+keyboard
