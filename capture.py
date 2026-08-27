@@ -8,21 +8,39 @@ from PIL import Image
 
 
 class RegionSelector:
-    """화면 전체를 반투명하게 덮고, 마우스 드래그로 캡쳐 영역을 선택받는 창."""
+    """
+    화면 전체(멀티 모니터 포함)를 반투명하게 덮고, 마우스 드래그로 캡쳐 영역을 선택받는 창.
+
+    tkinter의 -fullscreen 속성은 모니터 1개 기준으로만 전체화면이 되기 때문에
+    (두 번째 모니터는 덮이지 않아 그쪽에서는 드래그 자체가 안 됨), 대신 mss로
+    연결된 모든 모니터를 합친 가상 화면 전체 크기를 구해서 그 크기에 맞게
+    테두리 없는 창을 직접 배치하는 방식을 쓴다.
+    """
 
     def __init__(self, parent=None):
         self.parent = parent
         self._start = (0, 0)
         self._end = (0, 0)
         self._cancelled = False
+        self._origin = (0, 0)  # 가상 화면 좌상단의 절대 좌표 (보조 모니터가 왼쪽/위에 있으면 음수일 수 있음)
 
     def select(self):
         """
         드래그로 캡쳐 영역을 선택.
-        반환: (left, top, right, bottom) 또는 취소(Esc) 시 None
+        반환: (left, top, right, bottom) 절대 좌표, 또는 취소(Esc) 시 None
         """
+        with mss() as sct:
+            virtual_screen = sct.monitors[0]  # index 0 = 연결된 모든 모니터를 합친 영역
+
+        origin_x = virtual_screen["left"]
+        origin_y = virtual_screen["top"]
+        width = virtual_screen["width"]
+        height = virtual_screen["height"]
+        self._origin = (origin_x, origin_y)
+
         win = tk.Tk() if self.parent is None else tk.Toplevel(self.parent)
-        win.attributes("-fullscreen", True)
+        win.overrideredirect(True)  # 제목표시줄 없는 창 - 모니터 경계에 상관없이 정확한 위치/크기 지정용
+        win.geometry(f"{width}x{height}+{origin_x}+{origin_y}")
         win.attributes("-alpha", 0.25)   # 반투명하게 화면을 덮음
         win.attributes("-topmost", True)
         win.config(cursor="cross")
@@ -72,12 +90,19 @@ class RegionSelector:
         if right - left < 5 or bottom - top < 5:
             return None  # 너무 작게 선택하면 무효 처리
 
-        return (left, top, right, bottom)
+        # 창(캔버스) 내부 좌표 -> 실제 데스크톱 절대 좌표로 변환
+        origin_x, origin_y = self._origin
+        return (
+            origin_x + left,
+            origin_y + top,
+            origin_x + right,
+            origin_y + bottom,
+        )
 
 
 def capture_region(region):
     """
-    region: (left, top, right, bottom)
+    region: (left, top, right, bottom) - 절대 좌표
     반환: PIL.Image (RGB)
     """
     left, top, right, bottom = region
